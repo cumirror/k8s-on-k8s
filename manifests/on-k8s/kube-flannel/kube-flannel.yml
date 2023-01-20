@@ -24,13 +24,13 @@ data:
     }
   net-conf.json: |
     {
-      "Network": "10.2.0.0/16",
+      "Network": "10.6.0.0/16",
       "Backend": {
         "Type": "vxlan"
       }
     }
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kube-flannel-ds
@@ -39,6 +39,10 @@ metadata:
     tier: node
     app: flannel
 spec:
+  selector:
+    matchLabels:
+      app: flannel
+      tier: node
   template:
     metadata:
       labels:

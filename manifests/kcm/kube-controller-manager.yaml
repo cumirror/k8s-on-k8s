@@ -1,5 +1,5 @@
 kind: Deployment
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 metadata:
   name: kube-controller-manager
   labels:
@@ -35,7 +35,7 @@ spec:
             - '--use-service-account-credentials'
             - '--allocate-node-cidrs=true'
             - '--configure-cloud-routes=false'
-            - '--cluster-cidr=10.2.0.0/16'
+            - '--cluster-cidr=10.6.0.0/16'
             - '--root-ca-file=/etc/kubernetes/secrets/ca.crt'
             - '--service-account-private-key-file=/etc/kubernetes/secrets/service-account.key'
             - '--leader-elect=true'
@@ -59,7 +59,7 @@ spec:
               readOnly: true
               mountPath: /etc/ssl/certs
           terminationMessagePolicy: File
-          image: gcr.io/google_containers/hyperkube:v1.9.0
+          image: ccr.ccs.tencentyun.com/huzhenjin/hyperkube-amd64:v1.9.2
       volumes:
         - name: secrets
           secret:

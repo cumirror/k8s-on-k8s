@@ -166,3 +166,123 @@ Delete hosted k8s resources
 ```
 kubectl -n namespaceX delete deployment,svc,secrets,ingress --all
 ```
+
+MY Test
+--------------
+- prepare ns and dns
+```
+kubectl create ns cluster1
+
+# coredns的修改看着不是必要，是否和重启coredns有关？之前token无效的问题并没有定位到原因
+kubectl get cm -n kube-system coredns
+apiVersion: v1
+data:
+  Corefile: |2-
+        .:53 {
+            template ANY HINFO . {
+                rcode NXDOMAIN
+            }
+            errors
+            health {
+                lameduck 30s
+            }
+            ready
+            kubernetes cluster.local. in-addr.arpa ip6.arpa {
+                pods insecure
+                fallthrough in-addr.arpa ip6.arpa
+            }
+            prometheus :9153
+            forward . /etc/resolv.conf {
+                prefer_udp
+            }
+            cache 30
+            reload
+            loadbalance
+            hosts {
+              10.0.2.15 k8s.jacksontong.com
+              fallthrough
+            }
+        }
+
+apiserver的advertise-address
+```
+
+- prepare tools
+```
+curl -s -L -o /bin/cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+curl -s -L -o /bin/cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+curl -s -L -o /bin/cfssl-certinfo https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64
+chmod +x /bin/cfssl*
+
+https://storage.googleapis.com/kubernetes-release/release/v1.9.2/bin/linux/amd64/kubectl
+https://storage.googleapis.com/kubernetes-release/release/v1.9.2/bin/linux/amd64/kubelet
+```
+
+- Use Lb instead of nginx ingress
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/baremetal/deploy.yaml
+```
+
+- Ignore webhook
+```
+kubectl edit validatingwebhookconfiguration ingress-ingress-nginx-admission 
+failurePolicy: Ignore
+```
+
+- add host(tcp lb to nodeport)
+10.0.2.15 k8s.jacksontong.com
+
+- use kubeadm craete token
+```
+docker run --add-host=k8s.jacksontong.com:10.0.2.15 -v ${PWD}/tls:/tmp/tls -it jfnadeau/kubeadm:1.9.0 kubeadm alpha phase bootstrap-token cluster-info --kubeconfig /tmp/tls/kubeconfig
+docker run --add-host=k8s.jacksontong.com:10.0.2.15 -v ${PWD}/tls:/tmp/tls -it jfnadeau/kubeadm:1.9.0 kubeadm alpha phase bootstrap-token node allow-auto-approve --kubeconfig /tmp/tls/kubeconfig
+docker run --add-host=k8s.jacksontong.com:10.0.2.15 -v ${PWD}/tls:/tmp/tls -it jfnadeau/kubeadm:1.9.0 kubeadm alpha phase bootstrap-token node allow-post-csrs --kubeconfig /tmp/tls/kubeconfig
+docker run --add-host=k8s.jacksontong.com:10.0.2.15 -v ${PWD}/tls:/tmp/tls -it jfnadeau/kubeadm:1.9.0 kubeadm token create --ttl=0 --kubeconfig /tmp/tls/kubeconfig
+
+docker run --add-host=k8s.jacksontong.com:10.0.2.15 -v ${PWD}/tls:/tmp/tls -it jfnadeau/kubeadm:1.9.0 kubeadm token create --print-join-command --kubeconfig /tmp/tls/kubeconfig
+```
+
+- worker prepare
+```
+install docker:
+curl -fsSL http://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] http://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable"
+apt-get install -y docker-ce=17.03.2~ce-0~ubuntu-xenial
+
+instal kubelet/kubeadm:
+# kubeadm及kubernetes组件安装源
+deb https://mirrors.aliyun.com/kubernetes/apt kubernetes-xenial main
+apt-get update
+apt-get install -y kubernetes-cni=0.6.0-00 --allow-unauthenticated
+apt-get install -y kubelet=1.9.0-00 kubeadm=1.9.0-00 kubectl=1.9.0-00 --allow-unauthenticated
+
+add hosts
+```
+
+- use ubuntu 16.04 as worker
+kubeadm join --token 42b6c1.2a97ee86e30ec347 k8s.jacksontong.com:443 --discovery-token-unsafe-skip-ca-verification
+
+# update kubelet's pause image
+ExecStart=/usr/bin/kubelet --pod-infra-container-image=ccr.ccs.tencentyun.com/library/pause:latest $KUBELET_KUBECONFIG_ARGS $KUBELET_SYSTEM_PODS_ARGS $KUBELET_NETWORK_ARGS $KUBELET_DNS_ARGS $KUBELET_AUTHZ_ARGS $KUBELET_CADVISOR_ARGS $KUBELET_CERTIFICATE_ARGS $KUBELET_EXTRA_ARGS
+```
+
+- 节点上的网络设置
+```
+echo 1 > /proc/sys/net/ipv4/ip_forward
+iptables -P FORWARD ACCEPT
+```
+
+- clean
+```
+kubectl -n cluster1 delete deployment,svc,secrets,ingress --all
+
+rm tls/apiserver-admin-secret.yaml
+rm tls/apiserver-secret.yaml
+rm tls/controller-manager-secret.yaml
+rm tls/scheduler-secret.yaml
+```
+
+- other record
+```
+git archive -o ~/Downloads/test.zip HEAD
+```

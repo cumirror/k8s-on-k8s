@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -27,7 +27,7 @@ spec:
         - --bind-address=0.0.0.0
         - --secure-port=443
         - --insecure-port=8080
-        - --advertise-address=10.66.171.114
+        - --advertise-address=10.0.2.15
         - --etcd-servers=http://etcd0:2379
         - --allow-privileged=true
         - --service-cluster-ip-range=10.3.0.0/16
@@ -49,7 +49,7 @@ spec:
         - --requestheader-group-headers=X-Remote-Group
         - --enable-bootstrap-token-auth=true
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
-        image: gcr.io/google_containers/hyperkube:v1.9.0
+        image: ccr.ccs.tencentyun.com/huzhenjin/hyperkube-amd64:v1.9.2
         imagePullPolicy: IfNotPresent
         name: kube-apiserver
         resources: {}

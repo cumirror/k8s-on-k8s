@@ -4,7 +4,7 @@
     "127.0.0.1",
     "10.3.0.1",
     "kubernetes",
-    "k8s.foo.somedomain.edu"
+    "k8s.jacksontong.com"
   ],
   "key": {
     "algo": "rsa",
